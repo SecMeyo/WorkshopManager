@@ -289,7 +289,7 @@ def parser_args():
 
     subparser = subparsers.add_parser("update",
                                       help='updates either all installed or specified list of workshop items')
-    subparser.add_argument("workshop_ids", nargs="*", default="all",
+    subparser.add_argument("workshop_ids", nargs="*", default=["all"],
                            help='list of workshop_ids to be updated')
 
     subparser = subparsers.add_parser("info",

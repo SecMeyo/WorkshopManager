@@ -151,7 +151,7 @@ class SteamWorkshop:
         login = Params().get("login")
         mods = ['+workshop_download_item 107410 {} validate'.format(m) for m in modId]
         try:
-            cmd = ['steamcmd.exe', '+login', login[0], login[1], '+force_install_dir', install_dir]
+            cmd = ['steamcmd', '+login', login[0], login[1], '+force_install_dir', install_dir]
             for m in mods:
                 cmd.append(m)
             cmd.append("+quit")
@@ -159,7 +159,6 @@ class SteamWorkshop:
 
         except FileNotFoundError:
             print("Please install steamcmd first: https://duckduckgo.com/?q=install+steamcmd&t=ffsb&ia=web")
-        # %STEAMPATH%\steamcmd.exe +login %STEAMLOGIN% %STEAMPW% +force_install_dir %A3serverPath% +"workshop_download_item 107410 450814997" validate +quit
 
     @classmethod
     def details(cls, modId):
@@ -271,57 +270,51 @@ def parser_args():
         'https://github.com/astavinu/xxx')
 
     parser = ArgParser(description=description)
-    # Give optparse.OptionParser an `add_argument` method for
-    # compatibility with argparse.ArgumentParser
-    try:
-        parser.add_argument = parser.add_option
-    except AttributeError:
-        pass
 
-        subparsers = parser.add_subparsers(dest="command")
-        subparser = subparsers.add_parser("search",
-                                          help='searches the steam workshop')
-        subparser.add_argument("search_term", nargs="*")
-        subparser.add_argument('-s', "--sort", choices=["mostrecent", "trend", "totaluniquesubscribers", "textsearch"],
-                               default="textsearch",
-                               help='when using "search" the mods may be sorted')
+    subparsers = parser.add_subparsers(dest="command")
+    subparser = subparsers.add_parser("search",
+                                      help='searches the steam workshop')
+    subparser.add_argument("search_term", nargs="*")
+    subparser.add_argument('-s', "--sort", choices=["mostrecent", "trend", "totaluniquesubscribers", "textsearch"],
+                           default="textsearch",
+                           help='when using "search" the mods may be sorted')
 
-        subparser = subparsers.add_parser("install",
-                                          help='installs list of steam workshop items')
-        subparser.add_argument("workshop_ids", nargs="*")
+    subparser = subparsers.add_parser("install",
+                                      help='installs list of steam workshop items')
+    subparser.add_argument("workshop_ids", nargs="*")
 
-        subparser = subparsers.add_parser("remove",
-                                          help='removes list of steam workshop items')
-        subparser.add_argument("workshop_ids", nargs="*")
+    subparser = subparsers.add_parser("remove",
+                                      help='removes list of steam workshop items')
+    subparser.add_argument("workshop_ids", nargs="*")
 
-        subparser = subparsers.add_parser("update",
-                                          help='updates either all installed or specified list of workshop items')
-        subparser.add_argument("workshop_ids", nargs="*", default="all",
-                               help='list of workshop_ids to be updated')
+    subparser = subparsers.add_parser("update",
+                                      help='updates either all installed or specified list of workshop items')
+    subparser.add_argument("workshop_ids", nargs="*", default="all",
+                           help='list of workshop_ids to be updated')
 
-        subparser = subparsers.add_parser("info",
-                                          help='provides detailed information about one specific mod')
-        subparser.add_argument("workshop_id")
+    subparser = subparsers.add_parser("info",
+                                      help='provides detailed information about one specific mod')
+    subparser.add_argument("workshop_id")
 
-        subparser = subparsers.add_parser("list",
-                                          help='lists all installed mods')
+    subparser = subparsers.add_parser("list",
+                                      help='lists all installed mods')
 
-        subparser = subparsers.add_parser("set",
-                                          help='sets workshop manager environment variables')
-        subs = subparser.add_subparsers(dest="var")
-        s = subs.add_parser("login")
-        s.add_argument("username")
-        s.add_argument("password")
-        s = subs.add_parser("install_dir")
-        s.add_argument("directory")
+    subparser = subparsers.add_parser("set",
+                                      help='sets workshop manager environment variables')
+    subs = subparser.add_subparsers(dest="var")
+    s = subs.add_parser("login")
+    s.add_argument("username")
+    s.add_argument("password")
+    s = subs.add_parser("install_dir")
+    s.add_argument("directory")
 
-        parser.add_argument("-y", "--yes", action="store_true",
-                            help='agree to all confirmations')
-        group = parser.add_mutually_exclusive_group()
-        group.add_argument("-v", "--verbosity", action="count", default=0,
-                           help="increase output verbosity")
-        group.add_argument("-q", "--quiet", action="store_true", default=False,
-                           help="")
+    parser.add_argument("-y", "--yes", action="store_true", default=False,
+                        help='yes to all confirmations')
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-v", "--verbosity", action="count", default=0,
+                       help="increase output verbosity")
+    group.add_argument("-q", "--quiet", action="store_true", default=False,
+                       help="")
 
     options = parser.parse_args()
     if isinstance(options, tuple):
@@ -458,9 +451,10 @@ class CLI:
         print("{: >10} {: >12d} Workshop mod{}".format("Install", len(sizes), "s" if len(sizes) != 1 else ""))
         print("{: >10} {: >12.2f} MB".format("Size", sum(sizes)/pow(1024,2)))
         print("")
-        if "n" == input("Is this ok [Y|n]:").lower():
-            print("Installation aborted.")
-            return 0
+        if not args.yes:
+            if "n" == input("Is this ok [Y|n]:").lower():
+                print("Installation aborted.")
+                return 0
 
         for mod in mods:
             DB().install(mod)

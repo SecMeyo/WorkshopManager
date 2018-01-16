@@ -279,19 +279,23 @@ def parser_args():
         pass
 
         subparsers = parser.add_subparsers(dest="command")
-        subparser = subparsers.add_parser("search")
+        subparser = subparsers.add_parser("search",
+                                          help='searches the steam workshop')
         subparser.add_argument("search_term", nargs="*")
         subparser.add_argument('-s', "--sort", choices=["mostrecent", "trend", "totaluniquesubscribers", "textsearch"],
                                default="textsearch",
                                help='when using "search" the mods may be sorted')
 
-        subparser = subparsers.add_parser("install")
+        subparser = subparsers.add_parser("install",
+                                          help='installs list of steam workshop items')
         subparser.add_argument("workshop_ids", nargs="*")
 
-        subparser = subparsers.add_parser("remove")
+        subparser = subparsers.add_parser("remove",
+                                          help='removes list of steam workshop items')
         subparser.add_argument("workshop_ids", nargs="*")
 
-        subparser = subparsers.add_parser("update")
+        subparser = subparsers.add_parser("update",
+                                          help='updates either all installed or specified list of workshop items')
         subparser.add_argument("workshop_ids", nargs="*", default="all",
                                help='list of workshop_ids to be updated')
 
@@ -302,7 +306,8 @@ def parser_args():
         subparser = subparsers.add_parser("list",
                                           help='lists all installed mods')
 
-        subparser = subparsers.add_parser("set")
+        subparser = subparsers.add_parser("set",
+                                          help='sets workshop manager environment variables')
         subs = subparser.add_subparsers(dest="var")
         s = subs.add_parser("login")
         s.add_argument("username")
@@ -310,6 +315,8 @@ def parser_args():
         s = subs.add_parser("install_dir")
         s.add_argument("directory")
 
+        parser.add_argument("-y", "--yes", action="store_true",
+                            help='agree to all confirmations')
         group = parser.add_mutually_exclusive_group()
         group.add_argument("-v", "--verbosity", action="count", default=0,
                            help="increase output verbosity")
@@ -331,7 +338,7 @@ class CLI:
     def main(args, method_name=None):
         if method_name is None:
             if args.command is None:
-                raise AttributeError
+                return 1
             method_name = args.command
         class_name = CLI
 

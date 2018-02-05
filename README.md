@@ -5,6 +5,9 @@ WorkshopManager is a CLI tool to install and maintain steam workshop items.
 ## Setup
 ```
 pip install -r requirements.txt
+python wm.py set login <username> <password>    # sets steam username and password
+python wm.py set install_dir <directory>        # sets steam installation directory
+python wm.py set appid <appid>                  # sets steam application id
 ```
 ## Usage
 ```

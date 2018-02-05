@@ -127,6 +127,13 @@ class PklDB:
         try:
             with open(self.file, 'rb') as f:
                 self.__data = pkl.load(f)
+
+            # backwards compatibility to list db
+            if type(self.__data) == list:
+                new_data = {}
+                for m in self.__data:
+                    new_data.update({m.id: m})
+                self.__data = new_data
         except FileNotFoundError:
             return
 

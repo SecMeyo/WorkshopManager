@@ -5,19 +5,23 @@ import urllib.request
 import urllib.error
 import re
 import subprocess
+import pathlib
 
 
 class Mod:
     def __init__(self, id):
+        """Holds all information about one specific mod.
+
+        This class is used to provide functionality and information via CLI
+
+        :param id: Workshop ID
+        """
         self.id = id
         self.name = ""
         self.logo_url = ""
         self.require = []
         self.size = 0
         self.update()
-
-    def str_one_line(self) -> str:
-        return '{:10} {: >14}   {}'.format(self.id, self.str_get_size(), self.name)
 
     def __str__(self) -> str:
         result = "{: >12}: {}\n".format("id", self.id)
@@ -31,10 +35,13 @@ class Mod:
         return result
 
     def __eq__(self, other):
-
         return type(other) == Mod and self.id == other.id
 
     def update(self):
+        """Refreshes all information by reading the workshop page again
+
+        :return: None
+        """
         new = SteamWorkshop.details(self.id)
         if "message" in new.keys():
             print("Mod", self.id, "was not found!")
@@ -42,11 +49,17 @@ class Mod:
 
         self.name = new["name"]
         self.logo_url = new["logo_url"]
+        self.require.clear()
         for m in new["require"]:
             self.require += [Mod(m)]
         self.set_size(new["size"])
 
     def set_size(self, string):
+        """Reads workshop item size from human readable string and sets fields accordingly
+
+        :param string: file size
+        :return: None
+        """
         suffix = ["", "kb", "mb", "gb", "tb"]
         string = string.split(" ")
         assert len(string) == 2
@@ -57,99 +70,120 @@ class Mod:
         self.size = bytes
 
     def str_get_size(self):
+        """Builds human readable file size from bytes
+
+        :return: human readable file size
+        """
         mb = self.size/pow(1024, 2)
         return "{:.2f} MB".format(mb)
 
+    def str_one_line(self) -> str:
+        """Short description about a mod without line break
 
-class Params:
-    FILE_NAME = "params.pkl"
+        :return: info string
+        """
+        return '{:10} {: >14}   {}'.format(self.id, self.str_get_size(), self.name)
 
-    def __init__(self):
-        self.params = {}
-        self._load()
 
-    def set(self, param, value):
-        self.params[param] = value
-        self._save()
+class PklDB:
 
-    def get(self, param):
-        return self.params[param]
+    def __init__(self, file_name):
+        """Reads dictionaries from <file_name> with Pickle
 
-    def isset(self, param):
-        return param in self.params.keys()
+        This class can be used as a persistent dictionary.
+        It wraps Pickle around one single dictionary.
 
-    def _save(self):
-        with open(self.FILE_NAME, 'wb') as f:
-            pkl.dump(self.params, f)
+        :param file_name: name of Pickle file
+        :return: None
+        """
+        self.__data = {}
+        self.file = self.__get_file(file_name)
+        self.__load()
 
-    def _load(self):
+    def values(self):
+        return self.__data.values()
+
+    def keys(self):
+        return self.__data.keys()
+
+    def get(self, *args, **kwargs):
+        return self.__data.get(*args, **kwargs)
+
+    def update(self, *args, **kwargs):
+        result = self.__data.update(*args, **kwargs)
+        self.__save()
+        return result
+
+    def pop(self, *args, **kwargs):
+        result = self.__data.pop(*args, **kwargs)
+        self.__save()
+        return result
+
+    def __save(self):
+        with open(self.file, 'wb') as f:
+            pkl.dump(self.__data, f)
+
+    def __load(self):
         try:
-            with open(self.FILE_NAME, 'rb') as f:
-                self.params = pkl.load(f)
+            with open(self.file, 'rb') as f:
+                self.__data = pkl.load(f)
         except FileNotFoundError:
             return
 
+    def __get_file(self, file_name):
+        file = pathlib.Path(file_name)
+        file = file.with_suffix(".pkl")
+        return file
 
-class DB:
-    FILE_NAME = "mods.pkl"
 
+class Params(PklDB):
     def __init__(self):
-        self.mods = []
-        self.load()
+        PklDB.__init__(self, "params")
 
-    def save(self):
-        with open(self.FILE_NAME, 'wb') as f:
-            pkl.dump(self.mods, f)
 
-    def load(self):
-        try:
-            with open(self.FILE_NAME, 'rb') as f:
-                self.mods = pkl.load(f)
-        except FileNotFoundError:
-            return
+class Mods(PklDB):
+    def __init__(self):
+        PklDB.__init__(self, "mods")
 
-    def install(self, modId):
+    def install(self, mod_id):
+        """Takes a string or Mod and adds it to the dictionary
+
+        This is an additional interface for update
+
+        :param mod_id: Workshop ID or instance of Mod
+        :return: None
+        """
         mod = None
-        if type(modId) == str:
-            mod = Mod(modId)
-        elif type(modId) == Mod:
-            mod = modId
+        if type(mod_id) == str:
+            mod = Mod(mod_id)
+        elif type(mod_id) == Mod:
+            mod = mod_id
 
         if mod is not None:
-            if mod not in self.mods:
-                self.mods += [mod]
-                self.save()
-
-    def remove(self, modId):
-        for m in self.mods:
-            if modId == m.id:
-                self.mods.remove(m)
-                self.save()
-
-    def exists(self, modId):
-        for m in self.mods:
-            if modId == m.id:
-                return True
-        return False
-
-    def get(self, modId):
-        for m in self.mods:
-            if modId == m.id:
-                return m
-        return None
+            PklDB.update(self, {mod.id: mod})
 
 
 class SteamWorkshop:
     @classmethod
     def exists(cls, modId):
+        """Checks whether or not a workshop item exists
+
+        :param modId: Workshop ID
+        :return: True/False
+        """
         details = SteamWorkshop.details(modId)
         return "message" not in details.keys()
 
     @classmethod
-    def download(cls, modId):
+    def download(cls, modId, appid):
+        """Uses steamcmd to download workshop items
+
+        :param modId: Workshop ID
+        :return: None
+        """
         install_dir = Params().get("install_dir")
         login = Params().get("login")
-        mods = ['+workshop_download_item 107410 {} validate'.format(m) for m in modId]
+        mods = ['+workshop_download_item {} {} validate'.format(Params().get("appid"), m) for m in modId]
         try:
             cmd = ['steamcmd', '+login', login[0], login[1], '+force_install_dir', install_dir]
             for m in mods:
@@ -162,6 +196,11 @@ class SteamWorkshop:
 
     @classmethod
     def details(cls, modId):
+        """Crawls the steam workshop for item information
+
+        :param modId: Workshop ID
+        :return: dictionary of mod information
+        """
         details = {}
 
         link = "https://steamcommunity.com/sharedfiles/filedetails/"
@@ -173,20 +212,20 @@ class SteamWorkshop:
 
         html = r.read()
 
-        details.update(SteamWorkshop._parse_filedetails(html.decode("utf-8")))
+        details.update(SteamWorkshop.__parse_filedetails(html.decode("utf-8")))
         return details
 
     @classmethod
-    def search(cls, search_text, sort):
-        """
-        Searches the Steam Workshop for search_text and returns a list of Workshop IDs
-        :param search_text:
-        :param sort:
-        :return:
+    def search(cls, search_text, appid, sort="mostrecent"):
+        """Searches the Steam Workshop for search_text and returns a list of Workshop IDs
+
+        :param search_text: Text to search for in steam workshop
+        :param sort: Steam sorting method (default "mostrecent")
+        :return: list of Workshop IDs
         """
         from bs4 import BeautifulSoup  # https://www.crummy.com/software/BeautifulSoup/bs4/doc/
 
-        html = SteamWorkshop._get_search_html(search_text, sort=sort)
+        html = SteamWorkshop.__get_search_html(search_text, appid, sort=sort)
 
         soup = BeautifulSoup(html, "html.parser")
         tags = soup.find_all(href=re.compile("(filedetails/\?id)"))
@@ -194,16 +233,23 @@ class SteamWorkshop:
         workshop_ids = []
         for x in tags:
             link = x.get("href")
-            workshop_id = SteamWorkshop._find_ids(link)[0]
+            workshop_id = SteamWorkshop.__find_ids(link)[0]
             if workshop_id not in workshop_ids:
                 workshop_ids += [workshop_id]
 
         return workshop_ids
 
     @classmethod
-    def _get_search_html(cls, search_text, tags="Mod", sort="mostrecent"):
+    def __get_search_html(cls, search_text, appid, tags="Mod", sort=""):
+        """Retrieves results from steam workshop search
+
+        :param search_text:
+        :param tags: steam workshop tags (default "Mod")
+        :param sort: steam workshop sorting method (default "")
+        :return: html bytes array
+        """
         parameters = {}
-        parameters.update({"appid": "107410"})
+        parameters.update({"appid": appid})
         parameters.update({"searchtext": search_text})
         parameters.update({"childpublishedfileid": "0"})
         parameters.update({"browsesort": sort})
@@ -222,12 +268,22 @@ class SteamWorkshop:
         return html.decode("utf-8")
 
     @classmethod
-    def _find_ids(cls, s):
+    def __find_ids(cls, s):
+        """Searches for steam Workshop IDs in string
+
+        :param s: any string
+        :return: list of Workshop IDs
+        """
         workshop_id = re.findall("\d{4,15}", s)
         return workshop_id
 
     @classmethod
-    def _parse_filedetails(cls, html):
+    def __parse_filedetails(cls, html):
+        """Parses information from html bytes array
+
+        :param html: html bytes array
+        :return: dictionary of workshop item information
+        """
         from bs4 import BeautifulSoup  # https://www.crummy.com/software/BeautifulSoup/bs4/doc/
 
         details = {}
@@ -240,7 +296,7 @@ class SteamWorkshop:
             return details
 
         link = soup.find(href=re.compile("(filedetails/\?id)")).get("href")
-        details["id"] = SteamWorkshop._find_ids(link)[0]
+        details["id"] = SteamWorkshop.__find_ids(link)[0]
 
         html_details = soup.find(id="mainContents")
         details["name"] = html_details.find("div", "workshopItemTitle").string
@@ -252,7 +308,7 @@ class SteamWorkshop:
 
         items = html_details.find(id="RequiredItems")
         items = str(items)
-        details["require"] = SteamWorkshop._find_ids(items)
+        details["require"] = SteamWorkshop.__find_ids(items)
 
         details["size"] = html_details.find("div", "detailsStatRight").string
 
@@ -264,6 +320,10 @@ class SteamWorkshop:
 
 
 def parser_args():
+    """Parses user input via CLI and provides help
+
+    :return: argument object
+    """
     description = (
         'Command line interface for installing steam workshop mods '
         'and keeping them up-to-date - \n'
@@ -307,6 +367,8 @@ def parser_args():
     s.add_argument("password")
     s = subs.add_parser("install_dir")
     s.add_argument("directory")
+    s = subs.add_parser("appid")
+    s.add_argument("appid")
 
     parser.add_argument("-y", "--yes", action="store_true", default=False,
                         help='yes to all confirmations')
@@ -329,6 +391,13 @@ class CLI:
 
     @staticmethod
     def main(args, method_name=None):
+        """Maps CLI input to direct function calls
+
+        :param args: arguments to pass over
+        :param method_name: method to call (default None)
+        :return: result of invoked method
+        """
+
         if method_name is None:
             if args.command is None:
                 return 1
@@ -344,10 +413,20 @@ class CLI:
 
     @staticmethod
     def search(args):
+        """Searches the steam workshop
+
+        :param args: parsed CLI arguments
+        :return: None
+        """
+        if "appid" not in Params().keys():
+            print("Please set steam app id.")
+            print("use: set appid <appid>")
+            return
+
         text = ""
         for s in args.args:
             text += s+" "
-        mods = SteamWorkshop.search(text, args.sort)
+        mods = SteamWorkshop.search(text, Params().get("appid"), args.sort)
         print("Found:")
         for m in mods:
             mod = Mod(m)
@@ -362,19 +441,44 @@ class CLI:
 
     @staticmethod
     def set(args):
+        """Sets environment variables
+
+        Increases convenience of use by remembering parameters used at each program run
+        e.g. install directory, login credentials for steam, ...
+
+        :param args: parsed CLI arguments
+        :return: None
+        """
         if args.var == "login":
-            Params().set(args.var, [args.username, args.password])
+            Params().update({args.var: {"username": args.username, "password": args.password}})
         if args.var == "install_dir":
-            Params().set(args.var, args.directory)
+            Params().update({args.var: args.directory})
+        if args.var == "appid":
+            Params().update({args.var: Params().get("appid")})
 
     @staticmethod
     def info(args):
+        """Prints information about a workshop item
+
+        :param args: parsed CLI arguments
+        :return: None
+        """
+        if "appid" not in Params().keys():
+            print("Please set steam app id.")
+            print("use: set appid <appid>")
+            return
+
         mod = Mod(args.workshop_id)
         print(mod)
 
     @staticmethod
     def list(args):
-        mods = DB().mods
+        """Lists installed workshop items
+
+        :param args: parsed CLI arguments
+        :return: None
+        """
+        mods = Mods().values()
         sizes = [m.size for m in mods]
         dependencies = []
         print("Installed:")
@@ -396,13 +500,22 @@ class CLI:
 
     @staticmethod
     def install(args):
+        """Installs a list of workshop items
+
+        :param args: parsed CLI arguments
+        :return: None
+        """
         # fail early and gracefully
         error = False
-        if not Params().isset("install_dir"):
+        if "install_dir" not in Params().keys():
             error = True
             print("Please set installation directory.")
             print("use: set install_dir <directory>")
-        if not Params().isset("login"):
+        if "appid" not in Params().keys():
+            error = True
+            print("Please set steam app id.")
+            print("use: set appid <appid>")
+        if "login" not in Params().keys():
             error = True
             print("Please set steam login first.")
             print("use: set login <login_name> <password>")
@@ -415,7 +528,7 @@ class CLI:
         not_found = []
         for mod_id in args.workshop_ids:
             if SteamWorkshop.exists(mod_id):
-                if not DB().exists(mod_id):
+                if mod_id not in Mods().keys():
                     if mod_id not in install:
                         install += [mod_id]
                 else:
@@ -431,7 +544,7 @@ class CLI:
             for mod in mods:
                 sizes += [mod.size]
                 for m in mod.require:
-                    if not DB().exists(m.id):
+                    if m.id not in Mods().keys():
                         if m not in mods:
                             if m not in dependencies:
                                 dependencies += [m]
@@ -457,38 +570,48 @@ class CLI:
                 return 0
 
         for mod in mods:
-            DB().install(mod)
+            Mods().install(mod)
 
-        SteamWorkshop.download(install)
+        SteamWorkshop.download(install, Params().get("appid"))
 
     @staticmethod
     def remove(args):
+        """Removes a list of workshop items
+
+        :param args: parsed CLI arguments
+        :return: None
+        """
         for m in args.workshop_ids:
-            if not DB().exists(m):
+            if m not in Mods().keys():
                 print(m, "not installed.")
             else:
-                mod = DB().get(m)
-                DB().remove(m)
+                mod = Mods().get(m)
+                Mods().pop(m)
                 print(mod.name, "removed.")
 
     @staticmethod
     def update(args):
+        """Updates a list of workshop items
+
+        :param args: parsed CLI arguments
+        :return: None
+        """
         if args.workshop_ids[0] == "all":
             install = []
-            for mod in DB().mods:
+            for mod in Mods().values():
                 install += [mod.id]
                 for mod in mod.require:
                     install += [mod.id]
-            SteamWorkshop.download(install)
+            SteamWorkshop.download(install, Params().get("appid"))
         else:
             for mod_id in args.workshop_ids:
-                if DB().exists(mod_id):
-                    mod = DB().get(mod_id)
+                if mod_id in Mods().keys():
+                    mod = Mods().get(mod_id)
                     print("updating", mod.name)
-                    SteamWorkshop.download(mod.id)
+                    SteamWorkshop.download(mod.id, Params().get("appid"))
                     for mod in mod.require:
                         print("updating", mod.name)
-                        SteamWorkshop.download(mod.id)
+                        SteamWorkshop.download(mod.id, Params().get("appid"))
                 else:
                     print(mod_id, "not installed.")
 

@@ -438,7 +438,6 @@ class CLI:
         mods = SteamWorkshop.search(text, appid, args.sort)
         print("Found:")
         for m in mods:
-            print(m)
             mod = Mod(m)
             print("", mod.str_one_line())
             if len(mod.require) > 0:

@@ -248,7 +248,7 @@ class SteamWorkshop:
         return workshop_ids
 
     @classmethod
-    def __get_search_html(cls, search_text, appid, tags="Mod", sort=""):
+    def __get_search_html(cls, search_text, appid, tags="", sort=""):
         """Retrieves results from steam workshop search
 
         :param search_text:
@@ -262,11 +262,13 @@ class SteamWorkshop:
         parameters.update({"childpublishedfileid": "0"})
         parameters.update({"browsesort": sort})
         parameters.update({"section": "readytouseitems"})
-        parameters.update({"requiredtags[]": tags})
+        if tags != "": parameters.update({"requiredtags[]": tags})
         url = "http://steamcommunity.com/workshop/browse/"
 
         data = urllib.parse.urlencode(parameters)
-        req = urllib.request.Request(url + "?" + data)
+        url = url + "?" + data
+        print(url)
+        req = urllib.request.Request(url)
         html = None
         try:
             r = urllib.request.urlopen(req)

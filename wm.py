@@ -190,9 +190,10 @@ class SteamWorkshop:
         """
         install_dir = Params().get("install_dir")
         login = Params().get("login")
+
         mods = ['+workshop_download_item {} {} validate'.format(Params().get("appid"), m) for m in modId]
         try:
-            cmd = ['steamcmd', '+login', login[0], login[1], '+force_install_dir', install_dir]
+            cmd = ['steamcmd', '+login', login.get("username"), login.get("password"), '+force_install_dir', install_dir]
             for m in mods:
                 cmd.append(m)
             cmd.append("+quit")
@@ -247,7 +248,7 @@ class SteamWorkshop:
         return workshop_ids
 
     @classmethod
-    def __get_search_html(cls, search_text, appid, tags="Mod", sort=""):
+    def __get_search_html(cls, search_text, appid, tags="", sort=""):
         """Retrieves results from steam workshop search
 
         :param search_text:
@@ -261,11 +262,13 @@ class SteamWorkshop:
         parameters.update({"childpublishedfileid": "0"})
         parameters.update({"browsesort": sort})
         parameters.update({"section": "readytouseitems"})
-        parameters.update({"requiredtags[]": tags})
+        if tags != "": parameters.update({"requiredtags[]": tags})
         url = "http://steamcommunity.com/workshop/browse/"
 
         data = urllib.parse.urlencode(parameters)
-        req = urllib.request.Request(url + "?" + data)
+        url = url + "?" + data
+        print(url)
+        req = urllib.request.Request(url)
         html = None
         try:
             r = urllib.request.urlopen(req)
@@ -281,7 +284,7 @@ class SteamWorkshop:
         :param s: any string
         :return: list of Workshop IDs
         """
-        workshop_id = re.findall("\d{4,15}", s)
+        workshop_id = re.findall("\d{5,15}", s)
         return workshop_id
 
     @classmethod
@@ -431,9 +434,10 @@ class CLI:
             return
 
         text = ""
-        for s in args.args:
+        for s in args.search_term:
             text += s+" "
-        mods = SteamWorkshop.search(text, Params().get("appid"), args.sort)
+        appid = Params().get("appid")
+        mods = SteamWorkshop.search(text, appid, args.sort)
         print("Found:")
         for m in mods:
             mod = Mod(m)
@@ -461,7 +465,7 @@ class CLI:
         if args.var == "install_dir":
             Params().update({args.var: args.directory})
         if args.var == "appid":
-            Params().update({args.var: Params().get("appid")})
+            Params().update({args.var: args.appid})
 
     @staticmethod
     def info(args):
@@ -603,6 +607,19 @@ class CLI:
         :param args: parsed CLI arguments
         :return: None
         """
+        if "appid" not in Params().keys():
+            print("Please set steam app id.")
+            print("use: set appid <appid>")
+            return
+        if "install_dir" not in Params().keys():
+            print("Please set install_dir.")
+            print("use: set install_dir <directory>")
+            return
+        if "login" not in Params().keys():
+            print("Please set login.")
+            print("use: set login <username> <password>")
+            return
+
         if args.workshop_ids[0] == "all":
             install = []
             for mod in Mods().values():

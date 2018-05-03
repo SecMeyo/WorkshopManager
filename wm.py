@@ -604,10 +604,10 @@ class CLI:
                 if mod_id in Mods().keys():
                     mod = Mods().get(mod_id)
                     print("updating", mod.name)
-                    SteamWorkshop.download(mod.id, Params().get("appid"))
+                    SteamWorkshop.download([mod.id], Params().get("appid"))
                     for mod in mod.require:
                         print("updating", mod.name)
-                        SteamWorkshop.download(mod.id, Params().get("appid"))
+                        SteamWorkshop.download([mod.id], Params().get("appid"))
                 else:
                     print(mod_id, "not installed.")
 

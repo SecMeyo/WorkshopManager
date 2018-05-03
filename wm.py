@@ -361,6 +361,8 @@ def parser_args():
                                       help='updates either all installed or specified list of workshop items')
     subparser.add_argument("workshop_ids", nargs="*", default=["all"],
                            help='list of workshop_ids to be updated')
+    subparser.add_argument("-i", "--individual", action="store_true", default=False,
+                           help="update each mod individually in steamcmd")
 
     subparser = subparsers.add_parser("info",
                                       help='provides detailed information about one specific mod')
@@ -592,24 +594,28 @@ class CLI:
         # fail early and gracefully
         CLI.fail_on_missing_params(["install_dir", "appid", "login"])
 
+        install = []
         if args.workshop_ids[0] == "all":
-            install = []
-            for mod in Mods().values():
-                install += [mod.id]
-                for mod in mod.require:
-                    install += [mod.id]
-            SteamWorkshop.download(install, Params().get("appid"))
+            mods = Mods().values()
         else:
-            for mod_id in args.workshop_ids:
-                if mod_id in Mods().keys():
-                    mod = Mods().get(mod_id)
-                    print("updating", mod.name)
+            mods = [Mods().get(mod_id) for mod_id in args.workshop_ids]
+
+        for mod in mods:
+            if mod.id not in Mods().keys():
+                print(mod.id, "not installed.")
+            else:
+                if args.individual:
+                    print("\n\nupdating", mod.name)
                     SteamWorkshop.download([mod.id], Params().get("appid"))
-                    for mod in mod.require:
-                        print("updating", mod.name)
-                        SteamWorkshop.download([mod.id], Params().get("appid"))
-                else:
-                    print(mod_id, "not installed.")
+                install += [mod.id]
+            for rmod in mod.require:
+                if args.individual:
+                    print("\n\nupdating dependency", rmod.name)
+                    SteamWorkshop.download([rmod.id], Params().get("appid"))
+                install += [rmod.id]
+
+        if not args.individual:
+            SteamWorkshop.download(install, Params().get("appid"))
 
     @staticmethod
     def fail_on_missing_params(params):

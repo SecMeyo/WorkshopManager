@@ -428,10 +428,8 @@ class CLI:
         :param args: parsed CLI arguments
         :return: None
         """
-        if "appid" not in Params().keys():
-            print("Please set steam app id.")
-            print("use: set appid <appid>")
-            return
+        # fail early and gracefully
+        CLI.fail_on_missing_params(["appid"])
 
         text = ""
         for s in args.search_term:
@@ -474,10 +472,8 @@ class CLI:
         :param args: parsed CLI arguments
         :return: None
         """
-        if "appid" not in Params().keys():
-            print("Please set steam app id.")
-            print("use: set appid <appid>")
-            return
+        # fail early and gracefully
+        CLI.fail_on_missing_params(["appid"])
 
         mod = Mod(args.workshop_id)
         print(mod)
@@ -517,21 +513,7 @@ class CLI:
         :return: None
         """
         # fail early and gracefully
-        error = False
-        if "install_dir" not in Params().keys():
-            error = True
-            print("Please set installation directory.")
-            print("use: set install_dir <directory>")
-        if "appid" not in Params().keys():
-            error = True
-            print("Please set steam app id.")
-            print("use: set appid <appid>")
-        if "login" not in Params().keys():
-            error = True
-            print("Please set steam login first.")
-            print("use: set login <login_name> <password>")
-        if error:
-            return 0
+        CLI.fail_on_missing_params(["install_dir", "appid", "login"])
 
         # group mods
         install = []
@@ -607,18 +589,8 @@ class CLI:
         :param args: parsed CLI arguments
         :return: None
         """
-        if "appid" not in Params().keys():
-            print("Please set steam app id.")
-            print("use: set appid <appid>")
-            return
-        if "install_dir" not in Params().keys():
-            print("Please set install_dir.")
-            print("use: set install_dir <directory>")
-            return
-        if "login" not in Params().keys():
-            print("Please set login.")
-            print("use: set login <username> <password>")
-            return
+        # fail early and gracefully
+        CLI.fail_on_missing_params(["install_dir", "appid", "login"])
 
         if args.workshop_ids[0] == "all":
             install = []
@@ -639,6 +611,19 @@ class CLI:
                 else:
                     print(mod_id, "not installed.")
 
+    @staticmethod
+    def fail_on_missing_params(params):
+        message = {"install_dir": "Please set installation directory.",
+                   "appid": "Please set steam app id.",
+                   "login": "Please set steam login first."}
+        error = ""
+        for p in params:
+            if p not in Params().keys():
+                error += message[p]+"\n"
+        if error != "":
+            print(error)
+            print("use: set --help")
+            exit(0)
 
 if __name__ == "__main__":
     args = parser_args()

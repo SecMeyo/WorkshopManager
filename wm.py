@@ -7,6 +7,7 @@ import re
 import subprocess
 import pathlib
 import glob
+import os
 
 
 class Mod:
@@ -616,16 +617,17 @@ class CLI:
             else:
                 install += [mod.id]
 
+        store = Appworkshop()
         if args.individual:
             for mod in install:
                 SteamWorkshop.download([mod], Params().get("appid"))
                 if args.write_version:
-                    Appworkshop().write_version(mod)
+                    store.write_version(mod)
         else:
             SteamWorkshop.download(install, Params().get("appid"))
             for mod in install:
                 if args.write_version:
-                    Appworkshop().write_version(mod)
+                    store.write_version(mod)
 
     @staticmethod
     def fail_on_missing_params(params):
@@ -701,9 +703,15 @@ class Appworkshop:
     def write_version(self, modid):
         mod = self.export(modid)
         folder = glob.glob(Params().get("install_dir")+"/**/"+Params().get("appid")+"/"+modid, recursive=True)
+        self._delete_versions(folder[0])
         file = folder[0]+"/"+mod["timeupdated"]+".ver"
         with open(file, "w+") as f:
             f.write("")
+
+    @staticmethod
+    def _delete_versions(path):
+        for f in glob.glob(path+"/*.ver"):
+            os.remove(f)
 
 
 if __name__ == "__main__":

@@ -680,6 +680,8 @@ class Appworkshop:
                     nested_count -= 1
                 if nested_count < 0:
                     result[last] = self._parse_acf(nested)
+                    nested = ""
+                    nested_count = 0
                     collect_nested_dict = False
                 continue
             if "{" in line:

@@ -6,6 +6,7 @@ import urllib.error
 import re
 import subprocess
 import pathlib
+import glob
 
 
 class Mod:
@@ -389,6 +390,8 @@ def parser_args():
                        help="increase output verbosity")
     group.add_argument("-q", "--quiet", action="store_true", default=False,
                        help="")
+    parser.add_argument("-wv", "--write-version", action="store_true", default=False,
+                        help='writes version to every single workshop item as an empty file <version>.ver')
 
     options = parser.parse_args()
     if isinstance(options, tuple):
@@ -569,6 +572,10 @@ class CLI:
 
         SteamWorkshop.download(install, Params().get("appid"))
 
+        if args.write_version:
+            for mod_id in install:
+                Appworkshop().write_version(mod_id)
+
     @staticmethod
     def remove(args):
         """Removes a list of workshop items
@@ -599,23 +606,26 @@ class CLI:
             mods = Mods().values()
         else:
             mods = [Mods().get(mod_id) for mod_id in args.workshop_ids]
+            mods += [m.require for m in mods]
 
         for mod in mods:
             if mod.id not in Mods().keys():
                 print(mod.id, "not installed.")
+            elif mod.id in install:
+                print(mod.id, "skipped, already updated.")
             else:
-                if args.individual:
-                    print("\n\nupdating", mod.name)
-                    SteamWorkshop.download([mod.id], Params().get("appid"))
                 install += [mod.id]
-            for rmod in mod.require:
-                if args.individual:
-                    print("\n\nupdating dependency", rmod.name)
-                    SteamWorkshop.download([rmod.id], Params().get("appid"))
-                install += [rmod.id]
 
-        if not args.individual:
+        if args.individual:
+            for mod in install:
+                SteamWorkshop.download([mod], Params().get("appid"))
+                if args.write_version:
+                    Appworkshop().write_version(mod)
+        else:
             SteamWorkshop.download(install, Params().get("appid"))
+            for mod in install:
+                if args.write_version:
+                    Appworkshop().write_version(mod)
 
     @staticmethod
     def fail_on_missing_params(params):
@@ -630,6 +640,71 @@ class CLI:
             print(error)
             print("use: set --help")
             exit(0)
+
+
+class Appworkshop:
+    def __init__(self):
+        self.content = self._load(self._find())
+
+    def _find(self):
+        root = Params().get("install_dir")
+        appid = Params().get("appid")
+        dir = root + "/**/appworkshop_" + appid + ".acf"
+        files = glob.glob(dir, recursive=True)
+        if len(files) != 1:
+            print(files)
+            exit(1)
+        return files[0]
+
+    def _load(self, file):
+        with open(file) as f:
+            content = self._parse_acf(f.read())
+        return content
+
+    def _parse_acf(self, content):
+        result = {}
+        nested = ""
+        collect_nested_dict = False
+        nested_count = 0
+        last = ""
+
+        for line in content.splitlines():
+            line = line.strip().replace("\"", "")
+            if collect_nested_dict:
+                nested += line + "\n"
+                if "{" in line:
+                    nested_count += 1
+                if "}" in line:
+                    nested_count -= 1
+                if nested_count < 0:
+                    result[last] = self._parse_acf(nested)
+                    collect_nested_dict = False
+                continue
+            if "{" in line:
+                collect_nested_dict = True
+                continue
+
+            if "\t\t" in line:
+                vars = line.split("\t\t")
+                result[vars[0]] = vars[1]
+
+            last = line
+        return result
+
+    def export(self, modid):
+        items = self.content["AppWorkshop"]["WorkshopItemsInstalled"]
+        result = {}
+        if modid in items.keys():
+            result = items[modid]
+        return result
+
+    def write_version(self, modid):
+        mod = self.export(modid)
+        folder = glob.glob(Params().get("install_dir")+"/**/"+Params().get("appid")+"/"+modid, recursive=True)
+        file = folder[0]+"/"+mod["timeupdated"]+".ver"
+        with open(file, "w+") as f:
+            f.write("")
+
 
 if __name__ == "__main__":
     args = parser_args()

@@ -606,7 +606,11 @@ class CLI:
         if args.workshop_ids[0] == "all":
             mods = Mods().values()
         else:
-            mods = [Mods().get(mod_id) for mod_id in args.workshop_ids]
+            mods = []
+            for mod_id in args.workshop_ids:
+                m = Mods().get(mod_id)
+                if type(m) is Mod:
+                    mods += [m]
             mods += [m.require for m in mods]
 
         for mod in mods:

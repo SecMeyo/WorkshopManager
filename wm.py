@@ -611,7 +611,8 @@ class CLI:
                 m = Mods().get(mod_id)
                 if type(m) is Mod:
                     mods += [m]
-            mods += [m.require for m in mods]
+            for m in mods:
+                mods += m.require
 
         for mod in mods:
             if mod.id not in Mods().keys():

@@ -651,24 +651,30 @@ class CLI:
 
 class Appworkshop:
     def __init__(self):
+        self.content = {}
+        self.reload()
+
+    def reload(self):
         self.content = self._load(self._find())
 
-    def _find(self):
-        root = Params().get("install_dir")
-        appid = Params().get("appid")
-        dir = root + "/**/appworkshop_" + appid + ".acf"
-        files = glob.glob(dir, recursive=True)
-        if len(files) != 1:
-            print(files)
-            exit(1)
-        return files[0]
+    def export(self, modid):
+        self.reload()
+        items = self.content["AppWorkshop"]["WorkshopItemsInstalled"]
+        result = {}
+        if modid in items.keys():
+            result = items[modid]
+        return result
 
-    def _load(self, file):
-        with open(file) as f:
-            content = self._parse_acf(f.read())
-        return content
+    def write_version(self, modid):
+        mod = self.export(modid)
+        folder = glob.glob(Params().get("install_dir")+"/**/"+Params().get("appid")+"/"+modid, recursive=True)
+        self._delete_versions(folder[0])
+        file = folder[0]+"/"+mod["timeupdated"]+".ver"
+        with open(file, "w+") as f:
+            f.write("")
 
-    def _parse_acf(self, content):
+    @staticmethod
+    def _parse_acf(content):
         result = {}
         nested = ""
         collect_nested_dict = False
@@ -684,7 +690,7 @@ class Appworkshop:
                 if "}" in line:
                     nested_count -= 1
                 if nested_count < 0:
-                    result[last] = self._parse_acf(nested)
+                    result[last] = Appworkshop._parse_acf(nested)
                     nested = ""
                     nested_count = 0
                     collect_nested_dict = False
@@ -700,20 +706,22 @@ class Appworkshop:
             last = line
         return result
 
-    def export(self, modid):
-        items = self.content["AppWorkshop"]["WorkshopItemsInstalled"]
-        result = {}
-        if modid in items.keys():
-            result = items[modid]
-        return result
+    @staticmethod
+    def _find():
+        root = Params().get("install_dir")
+        appid = Params().get("appid")
+        dir = root + "/**/appworkshop_" + appid + ".acf"
+        files = glob.glob(dir, recursive=True)
+        if len(files) != 1:
+            print(files)
+            exit(1)
+        return files[0]
 
-    def write_version(self, modid):
-        mod = self.export(modid)
-        folder = glob.glob(Params().get("install_dir")+"/**/"+Params().get("appid")+"/"+modid, recursive=True)
-        self._delete_versions(folder[0])
-        file = folder[0]+"/"+mod["timeupdated"]+".ver"
-        with open(file, "w+") as f:
-            f.write("")
+    @staticmethod
+    def _load(file):
+        with open(file) as f:
+            content = Appworkshop._parse_acf(f.read())
+        return content
 
     @staticmethod
     def _delete_versions(path):

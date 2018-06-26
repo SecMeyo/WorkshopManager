@@ -450,6 +450,7 @@ class CLI:
                 names = ""
                 size = 0
                 for d in mod.require:
+                    d = Mod(d)
                     names += d.name+", "
                     size += d.size
                 print(" Dependencies: {:8.2f} MB   {}".format(size/pow(1024, 2), names[:-2]))
@@ -612,17 +613,17 @@ class CLI:
             for mod_id in args.workshop_ids:
                 m = Mods().get(mod_id)
                 if type(m) is Mod:
-                    mods += [m]
+                    mods += [m.id]
             for m in mods:
-                mods += m.require
+                mods += Mod(m).require
 
         for mod in mods:
-            if mod.id not in Mods().keys():
-                print(mod.id, "not installed.")
-            elif mod.id in install:
-                print(mod.id, "skipped, already updated.")
+            if mod not in Mods().keys():
+                print(mod, "not installed.")
+            elif mod in install:
+                print(mod, "skipped, already updated.")
             else:
-                install += [mod.id]
+                install += [mod]
 
         store = Appworkshop()
         if args.individual:

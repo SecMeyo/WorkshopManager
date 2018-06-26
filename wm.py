@@ -53,7 +53,7 @@ class Mod:
         self.logo_url = new["logo_url"]
         self.require.clear()
         for m in new["require"]:
-            self.require += [Mod(m)]
+            self.require += [m]
         self.set_size(new["size"])
 
     def set_size(self, string):
@@ -537,21 +537,23 @@ class CLI:
 
         sizes = []
         mods = [Mod(mod) for mod in install]
+        mods_ids = [m.id for m in mods]
         dependencies = []
         if len(install) > 0:
             print("Installing:")
             for mod in mods:
                 sizes += [mod.size]
                 for m in mod.require:
-                    if m.id not in Mods().keys():
-                        if m not in mods:
+                    if m not in Mods().keys():
+                        if m not in mods_ids:
                             if m not in dependencies:
                                 dependencies += [m]
-                                install += [m.id]
+                                install += [m]
                 print("", mod.str_one_line())
         if len(dependencies) > 0:
             print("Installing dependencies:")
-            for mod in dependencies:
+            for m in dependencies:
+                mod = Mod(m)
                 sizes += [mod.size]
                 print("", mod.str_one_line())
 

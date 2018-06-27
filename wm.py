@@ -25,6 +25,8 @@ class Mod:
         self.size = 0
         self.update()
 
+        self.dependencies = self.update_dependencies()
+
     def __str__(self) -> str:
         result = "{: >12}: {}\n".format("id", self.id)
         result += "{: >12}: {}\n".format("name", self.name)
@@ -85,6 +87,12 @@ class Mod:
         :return: info string
         """
         return '{:10} {: >14}   {}'.format(self.id, self.str_get_size(), self.name)
+
+    def get_dependencies(self):
+        return self.dependencies
+
+    def update_dependencies(self):
+        return SteamWorkshop.get_dependencies(self.id)
 
 
 class PklDB:
@@ -173,6 +181,19 @@ class Mods(PklDB):
 
 
 class SteamWorkshop:
+    @classmethod
+    def get_dependencies(cls, modId, parent_dependencies=[]):
+        new = SteamWorkshop.details(modId)["require"]
+        list = []
+        for n in new:
+            if n not in parent_dependencies and n not in list:
+                list += [n]
+                temp = SteamWorkshop.get_dependencies(modId, list+parent_dependencies)
+                if temp is not []:
+                    list += temp
+
+        return list
+
     @classmethod
     def exists(cls, modId):
         """Checks whether or not a workshop item exists
@@ -446,10 +467,10 @@ class CLI:
         for m in mods:
             mod = Mod(m)
             print("", mod.str_one_line())
-            if len(mod.require) > 0:
+            if len(mod.get_dependencies()) > 1:
                 names = ""
                 size = 0
-                for d in mod.require:
+                for d in mod.get_dependencies():
                     d = Mod(d)
                     names += d.name+", "
                     size += d.size
@@ -497,7 +518,8 @@ class CLI:
         dependencies = []
         print("Installed:")
         for mod in mods:
-            for m in mod.require:
+            for m in mod.get_dependencies():
+                m = Mod(m)
                 if m not in dependencies and m not in mods:
                     sizes += [m.size]
                     dependencies += [m]
@@ -544,7 +566,7 @@ class CLI:
             print("Installing:")
             for mod in mods:
                 sizes += [mod.size]
-                for m in mod.require:
+                for m in mod.get_dependencies():
                     if m not in Mods().keys():
                         if m not in mods_ids:
                             if m not in dependencies:
@@ -614,8 +636,7 @@ class CLI:
                 m = Mods().get(mod_id)
                 if type(m) is Mod:
                     mods += [m.id]
-            for m in mods:
-                mods += Mod(m).require
+                    mods += [md for md in m.get_dependencies()]
 
         for mod in mods:
             if mod not in Mods().keys():

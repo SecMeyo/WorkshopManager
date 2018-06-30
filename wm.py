@@ -89,7 +89,7 @@ class Mod:
         return '{:10} {: >14}   {}'.format(self.id, self.str_get_size(), self.name)
 
     def get_dependencies(self):
-        if not hasattr(self, 'update_dependencies'):
+        if not hasattr(self, 'dependencies'):
             self.dependencies = self.update_dependencies()
         return self.dependencies
 

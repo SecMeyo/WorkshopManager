@@ -641,7 +641,7 @@ class CLI:
                     mods += [md for md in m.get_dependencies()]
 
         for mod in mods:
-            if mod not in Mods().keys():
+            if mod not in [m.id for m in Mods().keys()]:
                 print(mod, "not installed.")
             elif mod in install:
                 print(mod, "skipped, already updated.")

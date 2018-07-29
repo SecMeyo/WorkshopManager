@@ -1,4 +1,6 @@
 from argparse import ArgumentParser as ArgParser
+from joblib import Parallel, delayed
+import multiprocessing
 import pickle as pkl
 import urllib.parse   # https://docs.python.org/3/library/urllib.request.html#module-urllib.request
 import urllib.request
@@ -8,7 +10,6 @@ import subprocess
 import pathlib
 import glob
 import os
-
 
 class Mod:
     def __init__(self, id):
@@ -269,7 +270,6 @@ class SteamWorkshop:
             workshop_id = SteamWorkshop.__find_ids(link)[0]
             if workshop_id not in workshop_ids:
                 workshop_ids += [workshop_id]
-
         return workshop_ids
 
     @classmethod
@@ -451,6 +451,24 @@ class CLI:
         return method(args)
 
     @staticmethod
+    def processMods(m):
+        """For parallel processing of found mods
+
+        :param m: parsed mod
+        :return: None
+        """
+        mod = Mod(m)
+        print("", mod.str_one_line())
+        if len(mod.get_dependencies()) > 1:
+            names = ""
+            size = 0
+            for d in mod.get_dependencies():
+                d = Mod(d)
+                names += d.name+", "
+                size += d.size
+            print(" Dependencies: {:8.2f} MB   {}".format(size/pow(1024, 2), names[:-2]))
+
+    @staticmethod
     def search(args):
         """Searches the steam workshop
 
@@ -465,18 +483,9 @@ class CLI:
             text += s+" "
         appid = Params().get("appid")
         mods = SteamWorkshop.search(text, appid, args.sort)
-        print("Found:")
-        for m in mods:
-            mod = Mod(m)
-            print("", mod.str_one_line())
-            if len(mod.get_dependencies()) > 1:
-                names = ""
-                size = 0
-                for d in mod.get_dependencies():
-                    d = Mod(d)
-                    names += d.name+", "
-                    size += d.size
-                print(" Dependencies: {:8.2f} MB   {}".format(size/pow(1024, 2), names[:-2]))
+
+        print("Found {0} Mods:".format(len(mods)))
+        Parallel(n_jobs=len(mods), backend="threading")(delayed(CLI.processMods)(m) for m in mods)
 
     @staticmethod
     def set(args):
